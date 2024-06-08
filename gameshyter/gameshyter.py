@@ -1,3 +1,4 @@
+import pygame.time
 import pygame
 import sys
 import math
@@ -26,14 +27,13 @@ max_angle = 90
 
 class Arrow:
     def __init__(self, x, y, angle):
-        self.image = pygame.transform.scale(
-            arrow_image, (50, 10))  # Масштабируем стрелу
-        self.angle = angle
-        self.image = pygame.transform.rotate(
-            self.image, -self.angle)  # Поворачиваем стрелу
+        self.image = pygame.transform.scale(arrow_image, (50, 10))
+        self.angle = math.radians(angle)  # Угол в радианах
         self.rect = self.image.get_rect(center=(x, y))
-        self.x_velocity = 2 * math.cos(math.radians(self.angle))
-        self.y_velocity = -2 * math.sin(math.radians(self.angle))
+        self.speed = 3 # Скорость стрелы
+        self.x_velocity = self.speed * math.cos(self.angle)
+        # Учитываем, что ось y направлена вниз
+        self.y_velocity = -self.speed * math.sin(self.angle)
 
     def update(self):
         self.rect.x += self.x_velocity
@@ -57,27 +57,42 @@ foreground_image = pygame.transform.scale(
     foreground_image, (new_width, new_height))
 image_rect = foreground_image.get_rect(center=(foreground_x, foreground_y))
 
+
+# Задержка между выстрелами (в миллисекундах)
+shoot_delay = 500  # Например, задержка в полсекунды
+
+# Переменная для отслеживания времени последнего выстрела
+last_shot_time = 0
+
 # Основной цикл игры
-while True:
+# Основной цикл игры
+running = True
+while running:
+    # Получаем текущее время в миллисекундах
+    current_time = pygame.time.get_ticks()
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+            running = False  # Завершаем игру
 
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # Получение позиции мыши
-            mouse_x, mouse_y = pygame.mouse.get_pos()
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Проверяем прошла ли достаточная задержка с момента предыдущего выстрела
+            if current_time - last_shot_time > shoot_delay:
+                # Получение позиции мыши
+                mouse_x, mouse_y = pygame.mouse.get_pos()
 
-            # Вычисление угла между центром изображения и позицией мыши
-            rel_x, rel_y = mouse_x - image_rect.centerx, mouse_y - image_rect.centery
-            # Корректируем угол на 90 градусов
-            angle = math.degrees(math.atan2(-rel_y, rel_x)) -0
+                # Вычисление угла между центром изображения и позицией мыши
+                rel_x, rel_y = mouse_x - image_rect.centerx, mouse_y - image_rect.centery
+                # Угол между центром и курсором мыши
+                angle = math.degrees(math.atan2(-rel_y, rel_x))
 
-            # Ограничиваем угол в пределах заданных границ
-            angle = max(min(angle, max_angle), min_angle)
+                # Создание новой стрелы с вычисленным углом направления
+                new_arrow = Arrow(image_rect.centerx,
+                                  image_rect.centery, angle)
+                arrows.append(new_arrow)
 
-            new_arrow = Arrow(image_rect.centerx, image_rect.centery, angle)
-            arrows.append(new_arrow)
+                # Обновляем время последнего выстрела
+                last_shot_time = current_time
 
     # Отрисовка изображения фона
     screen.blit(background_image, (0, 0))
@@ -106,3 +121,6 @@ while True:
 
     # Обновляем экран
     pygame.display.flip()
+
+# После выхода из цикла игры закрываем Pygame
+pygame.quit()
