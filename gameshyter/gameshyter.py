@@ -2,6 +2,7 @@ import pygame
 import sys
 import math
 import random
+import os
 
 pygame.init()
 
@@ -10,6 +11,12 @@ screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption("shyter")
 
 background_image = pygame.image.load('Background.png')
+background2 = pygame.image.load('background2.png')
+background2 = pygame.transform.scale(background2, (width, height))
+
+tiles = math.ceil(width / background2.get_width()) + 1
+
+scrool = 0
 
 foreground_image = pygame.image.load('boww.png')
 new_boww_width = 75
@@ -27,7 +34,7 @@ enemy_speed = 1  # Начальная скорость врагов
 
 # Инициализация шрифта и создание объекта шрифта
 pygame.font.init()
-font = pygame.font.SysFont('Arial', 30)
+font = pygame.font.Font('./minecraft.ttf', 30)
 
 # Переменная для отслеживания количества убитых врагов
 kill_count = 0
@@ -46,40 +53,6 @@ play_button_visible = True
 play_button_alpha = 255  # Начальное значение альфа-канала кнопки Play
 play_button_rect = pygame.Rect(width // 2 - 100, height // 2 + 100, 200, 50)  # Объявляем play_button_rect
 
-class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y, image_path, hit_image_path):
-        super().__init__()
-        self.original_image = pygame.image.load(image_path)
-        self.hit_image = pygame.image.load(hit_image_path)
-        self.image = pygame.transform.scale(self.original_image, (75, 75))
-        self.hit_image = pygame.transform.scale(self.hit_image, (75, 75))
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        self.hit = False
-        self.hit_time = 0
-
-    def draw(self):
-        if self.hit:
-            screen.blit(self.hit_image, (self.rect.x, self.rect.y))
-        else:
-            screen.blit(self.image, (self.rect.x, self.rect.y))
-
-    def handle_hit(self):
-        self.hit = True
-        self.hit_time = pygame.time.get_ticks()
-
-    def update(self):
-        global enemy_speed
-        if not self.hit:
-            self.rect.x -= enemy_speed
-            if self.rect.x <= vertical_line_x:  # Проверка пересечения с вертикальной линией
-                end_game()
-        if self.hit and current_time - self.hit_time > 500:  # 0.5 секунды
-            self.kill()
-            enemy_speed += 0.5  # Увеличение скорости врагов после смерти
-            global kill_count
-            kill_count += 1  # Увеличение счетчика убитых врагов
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, x, y, angle):
         super().__init__()
@@ -146,7 +119,15 @@ def end_game():
     show_title_screen()
 
 def show_title_screen():
-    screen.blit(background_image, (0, 0))  # Замените на ваше изображение заставки
+    global scrool
+    # screen.blit(background_image, (0, 0))  # Замените на ваше изображение заставки
+    i = 0
+    while (i < tiles):
+        screen.blit(background2, (background2.get_width()* i + scrool, 0))
+        i += 1
+    scrool -= 2
+    if (abs(scrool) > background2.get_width()):
+        scrool=0
     title_text = font.render("Нажмите кнопку Play для запуска игры", True, (255, 255, 255))
     title_rect = title_text.get_rect(center=(width // 2, height // 2 - 50))
     screen.blit(title_text, title_rect)
@@ -181,7 +162,7 @@ def reset_game():
 
 arrows = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
-enemy_image_path = "enemy.png"
+enemy_image_path = "enemyyy.png"
 hit_image_path = "enemy_hit.png"
 spawn_delay = 2000  # Увеличение задержки между спавнами врагов до 2 секунд
 last_spawn_time = 0
@@ -230,10 +211,9 @@ while running:
                 arrows.add(new_arrow)
                 last_shot_time = current_time
 
-
     screen.blit(background_image, (0, 0))
 
-    if not game_over:
+    if not game_over and not show_title:  # Добавлено условие для игрового экрана
         mouse_x, mouse_y = pygame.mouse.get_pos()
         rel_x, rel_y = mouse_x - image_rect.centerx, mouse_y - image_rect.centery
         angle = math.degrees(math.atan2(-rel_y, rel_x)) - -45
