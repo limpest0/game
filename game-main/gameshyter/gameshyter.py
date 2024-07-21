@@ -1,4 +1,5 @@
 import pygame
+import time
 import sys
 import math
 import random
@@ -107,6 +108,25 @@ class Enemy(pygame.sprite.Sprite):
             global kill_count
             kill_count += 1  # Увеличение счетчика убитых врагов
 
+class Bonus(pygame.sprite.Sprite):
+    def __init__(self, x, y, image_path, hit_image_path):
+        super().__init__()
+        self.original_image = pygame.image.load(image_path)
+        self.hit_image = pygame.image.load(hit_image_path)
+        self.image = pygame.transform.scale(self.original_image, (50, 60))
+        self.hit_image = pygame.transform.scale(self.hit_image, (50, 70))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.hit = False
+        self.hit_time = 0
+
+    def update(self):
+        global enemy_speed
+        self.rect.x -= enemy_speed
+        if self.rect.x <= 0:  # Проверка пересечения с вертикальной линией
+            self.kill()
+    
 def end_game():
     global running, game_over, show_title, show_title_end_time, previous_kill_count
     game_over = True
@@ -162,6 +182,7 @@ def reset_game():
 
 arrows = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
+bonuses = pygame.sprite.Group()
 enemy_image_path = "ricar (2).png"
 hit_image_path = "ricar (1).png"
 spawn_delay = 2000  # Увеличение задержки между спавнами врагов до 2 секунд
@@ -172,14 +193,20 @@ def spawn_enemy():
     new_enemy = Enemy(width, y_position, enemy_image_path, hit_image_path)
     enemies.add(new_enemy)
 
+def spawn_bonuses():
+    y_position = random.randint(0, 500)
+    bonuses.add(Bonus(width, y_position, hit_image_path, hit_image_path))
+
 # Инициализация заставки перед началом игры
 show_title_screen()
 
 running = True
 last_shot_time = 0
-shoot_delay = 0
+shoot_delay = 1000
 initial_character_x = 155
 initial_character_y = 330
+bonuses_last_spawn = 0
+bonuses_spawn_delay = 2
 image_rect = foreground_image.get_rect(center=(initial_character_x, initial_character_y))
 
 while running:
@@ -212,6 +239,11 @@ while running:
 
     screen.blit(background_image, (0, 0))
 
+    if time.time() - bonuses_last_spawn > bonuses_spawn_delay:
+        bonuses_last_spawn = time.time()
+        for _ in range(1):
+            bonuses.add(Bonus(width, random.randint(0, height),'ricar (2).png','ricar (1).png'))
+
     if not game_over and not show_title:  # Добавлено условие для игрового экрана
         mouse_x, mouse_y = pygame.mouse.get_pos()
         rel_x, rel_y = mouse_x - image_rect.centerx, mouse_y - image_rect.centery
@@ -223,17 +255,25 @@ while running:
 
         arrows.update()
         enemies.update()
+        bonuses.update()
 
         # Спавн врагов
         if current_time - last_spawn_time > spawn_delay:
             spawn_enemy()
             last_spawn_time = current_time
-
-        collision = pygame.sprite.groupcollide(arrows, enemies, True, False)
-        if collision:
-            for arrow in collision:  # each bullet
-                for enemy in collision[arrow]:  # each alien that collides with that bullet
+        
+        bonuses.draw(screen)
+        collision_enemy = pygame.sprite.groupcollide(arrows, enemies, True, False)
+        if collision_enemy:
+            for arrow in collision_enemy:  # each bullet
+                for enemy in collision_enemy[arrow]:  # each alien that collides with that bullet
                     enemy.handle_hit()
+
+        collision_bonuses = pygame.sprite.groupcollide(arrows, bonuses, True, True)
+        # if collision_bonuses:
+        #     for arrow in collision_bonuses:  # each bullet
+        #         for bonus in collision_bonuses[arrow]:  # each alien that collides with that bullet
+                    # bonus.handle_hit()
 
         arrows.draw(screen)
         for enemy in enemies:
@@ -250,7 +290,7 @@ while running:
             screen.blit(game_over_text, (width // 2 - game_over_text.get_width() // 2, height // 2 - game_over_text.get_height() // 2))
         else:
             show_title_screen()
-
+    
     if show_title:
         show_title_screen()
 
