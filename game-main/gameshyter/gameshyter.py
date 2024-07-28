@@ -3,7 +3,6 @@ import time
 import sys
 import math
 import random
-import os
 
 pygame.init()
 
@@ -49,9 +48,7 @@ game_over = False
 show_title = True
 
 # Переменные для кнопки Play
-global play_button_visible, play_button_alpha
 play_button_visible = True
-play_button_alpha = 255  # Начальное значение альфа-канала кнопки Play
 play_button_rect = pygame.Rect(width // 2 - 100, height // 2 + 100, 200, 50)  # Объявляем play_button_rect
 
 class Arrow(pygame.sprite.Sprite):
@@ -126,28 +123,31 @@ class Bonus(pygame.sprite.Sprite):
         self.rect.x -= enemy_speed
         if self.rect.x <= 0:  # Проверка пересечения с вертикальной линией
             self.kill()
-    
+
 def end_game():
-    global running, game_over, show_title, show_title_end_time, previous_kill_count
+    global running, game_over, show_title, previous_kill_count
     game_over = True
     previous_kill_count = kill_count  # Сохраняем текущий счет как предыдущий результат
     show_title_end_time = current_time + 1000  # Показываем заставку на 1 секунду
-    show_title = True
-    global play_button_visible, play_button_alpha
-    play_button_visible = True
-    play_button_alpha = 255  # Восстанавливаем альфа-канал кнопки Play
-    show_title_screen()
+
+def play_button():
+    play_button_surface = pygame.Surface((play_button_rect.width, play_button_rect.height))
+    play_button_surface.set_alpha(255)  # Устанавливаем альфа-канал поверхности кнопки Play
+    play_button_surface.fill((0, 255, 0))
+    screen.blit(play_button_surface, play_button_rect)
+    play_text = font.render("Play", True, (0, 0, 0))
+    play_text_rect = play_text.get_rect(center=play_button_rect.center)
+    screen.blit(play_text, play_text_rect)
 
 def show_title_screen():
     global scrool
-    # screen.blit(background_image, (0, 0))  # Замените на ваше изображение заставки
     i = 0
     while (i < tiles):
-        screen.blit(background2, (background2.get_width()* i + scrool, 0))
+        screen.blit(background2, (background2.get_width() * i + scrool, 0))
         i += 1
     scrool -= 2
     if (abs(scrool) > background2.get_width()):
-        scrool=0
+        scrool = 0
     title_text = font.render("Нажмите кнопку Play для запуска игры", True, (255, 255, 255))
     title_rect = title_text.get_rect(center=(width // 2, height // 2 - 50))
     screen.blit(title_text, title_rect)
@@ -156,30 +156,43 @@ def show_title_screen():
     previous_result_rect = previous_result_text.get_rect(center=(width // 2, height // 2 + 50))
     screen.blit(previous_result_text, previous_result_rect)
 
-    global play_button_visible, play_button_alpha
     if play_button_visible:
-        play_button_surface = pygame.Surface((play_button_rect.width, play_button_rect.height))
-        play_button_surface.set_alpha(play_button_alpha)  # Устанавливаем альфа-канал поверхности кнопки Play
-        play_button_surface.fill((0, 255, 0))
-        screen.blit(play_button_surface, play_button_rect)
-        play_text = font.render("Play", True, (0, 0, 0))
-        play_text_rect = play_text.get_rect(center=play_button_rect.center)
-        screen.blit(play_text, play_text_rect)
+        play_button()
 
     pygame.display.update()
 
+def fade_to_black():
+    fade_surface = pygame.Surface((width, height))
+    fade_surface.fill((0, 0, 0))
+    for alpha in range(0, 256, 5):  # Плавное затемнение
+        fade_surface.set_alpha(alpha)
+        screen.blit(fade_surface, (0, 0))
+        pygame.display.update()
+        clock.tick(60)
+
+def fade_from_black():
+    fade_surface = pygame.Surface((width, height))
+    fade_surface.fill((0, 0, 0))
+    for alpha in range(255, -1, -5):  # Плавное появление
+        fade_surface.set_alpha(alpha)
+        screen.blit(fade_surface, (0, 0))
+        pygame.display.update()
+        clock.tick(60)
+
 def reset_game():
-    global enemy_speed, kill_count, last_spawn_time, arrows, enemies, game_over, show_title, previous_kill_count
+    global enemy_speed, kill_count, last_spawn_time, arrows, enemies, bonuses, game_over, show_title, previous_kill_count
     enemy_speed = 1
     kill_count = 0
     previous_kill_count = 0
     last_spawn_time = 0
     arrows.empty()
     enemies.empty()
+    bonuses.empty()  # Добавлено, чтобы очищать бонусы при сбросе игры
     game_over = False
     show_title = True
-    show_title_screen()
+    fade_from_black()
 
+# Группы спрайтов
 arrows = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
 bonuses = pygame.sprite.Group()
@@ -194,7 +207,7 @@ def spawn_enemy():
     enemies.add(new_enemy)
 
 def spawn_bonuses():
-    y_position = random.randint(0, 500)
+    y_position = random.randint(0, height // 3)  # Ограничение по y для верхней части экрана
     bonuses.add(Bonus(width, y_position, hit_image_path, hit_image_path))
 
 # Инициализация заставки перед началом игры
@@ -206,7 +219,7 @@ shoot_delay = 1000
 initial_character_x = 155
 initial_character_y = 330
 bonuses_last_spawn = 0
-bonuses_spawn_delay = 2
+bonuses_spawn_delay = 25  # Изменено на 25 секунд
 image_rect = foreground_image.get_rect(center=(initial_character_x, initial_character_y))
 
 while running:
@@ -218,9 +231,10 @@ while running:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and show_title:
             mouse_x, mouse_y = pygame.mouse.get_pos()
             if play_button_rect.collidepoint(mouse_x, mouse_y):  # Проверка на нажатие кнопки Play
+                fade_to_black()  # Плавный переход в игру
                 show_title = False
-                play_button_visible = False  # Скрываем кнопку Play
                 play_button_alpha = 0  # Устанавливаем альфа-канал кнопки Play на минимальное значение
+                fade_from_black()  # Плавное появление игры
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and game_over:
             mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -239,12 +253,11 @@ while running:
 
     screen.blit(background_image, (0, 0))
 
-    if time.time() - bonuses_last_spawn > bonuses_spawn_delay:
-        bonuses_last_spawn = time.time()
-        for _ in range(1):
-            bonuses.add(Bonus(width, random.randint(0, height),'ricar (2).png','ricar (1).png'))
 
     if not game_over and not show_title:  # Добавлено условие для игрового экрана
+        if current_time - bonuses_last_spawn > bonuses_spawn_delay * 1000:  # Проверка времени спавна бонусов
+            bonuses_last_spawn = current_time
+            spawn_bonuses()  # Спавн бонусов
         mouse_x, mouse_y = pygame.mouse.get_pos()
         rel_x, rel_y = mouse_x - image_rect.centerx, mouse_y - image_rect.centery
         angle = math.degrees(math.atan2(-rel_y, rel_x)) - -45
@@ -265,15 +278,15 @@ while running:
         bonuses.draw(screen)
         collision_enemy = pygame.sprite.groupcollide(arrows, enemies, True, False)
         if collision_enemy:
-            for arrow in collision_enemy:  # each bullet
-                for enemy in collision_enemy[arrow]:  # each alien that collides with that bullet
+            for arrow in collision_enemy:  # каждый снаряд
+                for enemy in collision_enemy[arrow]:  # каждый враг, который столкнулся с этим снарядом
                     enemy.handle_hit()
 
         collision_bonuses = pygame.sprite.groupcollide(arrows, bonuses, True, True)
-        # if collision_bonuses:
-        #     for arrow in collision_bonuses:  # each bullet
-        #         for bonus in collision_bonuses[arrow]:  # each alien that collides with that bullet
-                    # bonus.handle_hit()
+        if collision_bonuses:  # Проверка, были ли собраны бонусы
+            for arrow in collision_bonuses:  # каждый снаряд
+                for bonus in collision_bonuses[arrow]:  # каждый бонус, который столкнулся с этим снарядом
+                    shoot_delay = max(1000, shoot_delay - 15000)  # Уменьшаем shoot_delay на 15 секунд, минимум 1 секунда
 
         arrows.draw(screen)
         for enemy in enemies:
@@ -284,9 +297,9 @@ while running:
         screen.blit(kill_count_text, (10, 10))
 
     if game_over:
-        if current_time < show_title_end_time:
-            pygame.draw.rect(screen, (0, 0, 0), play_button_rect)  # Перерисовываем кнопку, чтобы она была чёрной
-            game_over_text = font.render(f'Проиграш', True, (255, 0, 0))
+        if current_time:
+            play_button()
+            game_over_text = font.render(f'Програш, натисніть кнопку нижче. ', True, (255, 0, 0))
             screen.blit(game_over_text, (width // 2 - game_over_text.get_width() // 2, height // 2 - game_over_text.get_height() // 2))
         else:
             show_title_screen()
@@ -298,3 +311,4 @@ while running:
     clock.tick(60)
 
 pygame.quit()
+
